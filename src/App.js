@@ -24,76 +24,45 @@ const allCategories = [
 ];
 
 function App() {
-  // --------------------------------------
-  // Game Phase State:
-  // --------------------------------------
-  // "setup_p1_strength": Player 1 selects 3 strength categories.
-  // "setup_p1_weakness": Player 1 selects 3 weakness categories for AI.
-  // "setup_ai": AI auto‑selects its own categories.
-  // "playing": Gameplay is active.
+  // Game phase state.
   const [gameState, setGameState] = useState("setup_p1_strength");
   const [player1Strengths, setPlayer1Strengths] = useState([]);
   const [player1Weaknesses, setPlayer1Weaknesses] = useState([]);
   const [aiStrengths, setAiStrengths] = useState([]);
   const [aiWeaknesses, setAiWeaknesses] = useState([]);
 
-  // --------------------------------------
-  // In-game Variables:
-  // --------------------------------------
-  // turn: Used for turn parity (even = Player 1, odd = AI).
+  // In-game state.
   const [turn, setTurn] = useState(0);
-  // selectedCategory: the category chosen for the current turn.
   const [selectedCategory, setSelectedCategory] = useState(null);
-  // We now keep separate current topic & question for Player 1 and AI.
-  const [currentTopicP1, setCurrentTopicP1] = useState(null);
-  const [currentQuestionP1, setCurrentQuestionP1] = useState(null);
-  const [currentTopicAI, setCurrentTopicAI] = useState(null);
-  const [currentQuestionAI, setCurrentQuestionAI] = useState(null);
-  // degree: current question degree (1, 2, or 3).
+  const [currentTopic, setCurrentTopic] = useState(null); // Fixed topic for the turn.
   const [degree, setDegree] = useState(1);
-  // answer: stores Player 1's answer.
+  const [currentQuestion, setCurrentQuestion] = useState(null);
   const [answer, setAnswer] = useState('');
-  // feedback: message to display to the user.
   const [feedback, setFeedback] = useState('');
-  // score: tracks Player 1 and AI scores.
   const [score, setScore] = useState({ "Player 1": 0, "AI Player": 0 });
-  // round: current round number (game ends after 5 rounds).
   const [round, setRound] = useState(1);
-  // masteredCategories: tracks categories mastered by each player.
   const [masteredCategories, setMasteredCategories] = useState({ "Player 1": [], "AI Player": [] });
   
-  // --------------------------------------
-  // (Optional) Steal state – reserved for future extension.
+  // New state: stealTurn forces control for a steal attempt (only off-turn Player 1 can steal).
+  // When non-null, it indicates that Player 1 is in a steal opportunity.
   const [stealTurn, setStealTurn] = useState(null);
 
-  // Active player (by turn parity; stealTurn not used in this version).
-  const activePlayer = (turn % 2 === 0) ? "Player 1" : "AI Player";
+  // Determine active player: if stealTurn is active, that player is active; otherwise, normal turn parity.
+  const activePlayer = stealTurn ? stealTurn : (turn % 2 === 0 ? "Player 1" : "AI Player");
 
-  // Helper getters and setters for active player's topic & question.
-  const currentTopicActive = activePlayer === "Player 1" ? currentTopicP1 : currentTopicAI;
-  const setCurrentTopicActive = activePlayer === "Player 1" ? setCurrentTopicP1 : setCurrentTopicAI;
-  const currentQuestionActive = activePlayer === "Player 1" ? currentQuestionP1 : currentQuestionAI;
-  const setCurrentQuestionActive = activePlayer === "Player 1" ? setCurrentQuestionP1 : setCurrentQuestionAI;
-
-  // --------------------------------------
-  // Helper: clearTurnState – resets per-turn variables for the active player.
-  // --------------------------------------
+  // ----------------------------
+  // clearTurnState: Reset per-turn variables so a new topic is chosen.
+  // ----------------------------
   const clearTurnState = () => {
     setSelectedCategory(null);
-    if (activePlayer === "Player 1") {
-      setCurrentTopicP1(null);
-      setCurrentQuestionP1(null);
-    } else {
-      setCurrentTopicAI(null);
-      setCurrentQuestionAI(null);
-    }
+    setCurrentTopic(null);
     setDegree(1);
     setStealTurn(null);
   };
 
-  // --------------------------------------
-  // resetGame – resets the entire game state.
-  // --------------------------------------
+  // ----------------------------
+  // resetGame: Reset entire game state.
+  // ----------------------------
   const resetGame = () => {
     setGameState("setup_p1_strength");
     setPlayer1Strengths([]);
@@ -102,71 +71,71 @@ function App() {
     setAiWeaknesses([]);
     setTurn(0);
     clearTurnState();
+    setCurrentQuestion(null);
+    setAnswer('');
+    setFeedback('');
     setScore({ "Player 1": 0, "AI Player": 0 });
     setRound(1);
     setMasteredCategories({ "Player 1": [], "AI Player": [] });
-    setFeedback('');
-    setAnswer('');
   };
 
-  // --------------------------------------
-  // Pregame: Player 1 selects 3 Strength Categories.
-  // --------------------------------------
+  // ----------------------------
+  // Pregame: Player 1 selects 3 strength categories.
+  // ----------------------------
   const handleP1SelectStrength = (cat) => {
-    console.log("Player 1 selects strength:", cat);
+    console.log("handleP1SelectStrength:", cat);
     if (player1Strengths.length < 3 && !player1Strengths.includes(cat)) {
-      const newStr = [...player1Strengths, cat];
-      setPlayer1Strengths(newStr);
-      if (newStr.length === 3) {
+      const newStrengths = [...player1Strengths, cat];
+      setPlayer1Strengths(newStrengths);
+      if (newStrengths.length === 3) {
         setGameState("setup_p1_weakness");
-        console.log("Transition to Weakness Selection");
+        console.log("Transition to setup_p1_weakness");
       }
     }
   };
 
-  // --------------------------------------
-  // Pregame: Player 1 selects 3 Weakness Categories for AI.
-  // --------------------------------------
+  // ----------------------------
+  // Pregame: Player 1 selects 3 weaknesses for AI.
+  // ----------------------------
   const handleP1SelectWeakness = (cat) => {
-    console.log("Player 1 selects AI weakness:", cat);
+    console.log("handleP1SelectWeakness:", cat);
     if (player1Weaknesses.length < 3 && !player1Weaknesses.includes(cat)) {
-      const newWeak = [...player1Weaknesses, cat];
-      setPlayer1Weaknesses(newWeak);
-      if (newWeak.length === 3) {
+      const newWeaknesses = [...player1Weaknesses, cat];
+      setPlayer1Weaknesses(newWeaknesses);
+      if (newWeaknesses.length === 3) {
         setGameState("setup_ai");
-        console.log("Transition to AI Selection");
+        console.log("Transition to setup_ai");
       }
     }
   };
 
-  // --------------------------------------
-  // Pregame: AI auto-selects its strengths and weaknesses (independently).
-  // --------------------------------------
+  // ----------------------------
+  // Pregame: AI auto-selects its strengths and weaknesses.
+  // ----------------------------
   useEffect(() => {
-    if (gameState === "setup_ai" && player1Weaknesses.length === 3) {
-      const aiStr = [];
-      const aiWeak = [];
-      while (aiStr.length < 3) {
-        const randCat = allCategories[Math.floor(Math.random() * allCategories.length)];
-        if (!aiStr.includes(randCat)) aiStr.push(randCat);
+    if (gameState === "setup_ai") {
+      const remaining = allCategories.filter(cat => !player1Strengths.includes(cat));
+      console.log("AI remaining:", remaining);
+      if (aiStrengths.length < 3) {
+        setAiStrengths(remaining.slice(0, 3));
+        console.log("AI Strengths:", remaining.slice(0, 3));
       }
-      while (aiWeak.length < 3) {
-        const randCat = allCategories[Math.floor(Math.random() * allCategories.length)];
-        if (!aiWeak.includes(randCat)) aiWeak.push(randCat);
+      if (aiWeaknesses.length < 3) {
+        setAiWeaknesses(remaining.slice(3, 6));
+        console.log("AI Weaknesses:", remaining.slice(3, 6));
       }
-      console.log("AI Strengths:", aiStr, "AI Weaknesses:", aiWeak);
-      setAiStrengths(aiStr);
-      setAiWeaknesses(aiWeak);
-      setGameState("playing");
-      console.log("Transition to Gameplay");
+      if (aiStrengths.length >= 3 && aiWeaknesses.length >= 3) {
+        setGameState("playing");
+        console.log("Transition to playing phase");
+      }
     }
-  }, [player1Weaknesses, gameState]);
+  }, [gameState, player1Strengths, aiStrengths, aiWeaknesses]);
 
-  // --------------------------------------
-  // Gameplay: Compute available categories for the active player.
-  // For Player 1: available = (player1Strengths ∪ aiWeaknesses) minus mastered categories.
-  // For AI: available = (aiStrengths ∪ player1Weaknesses) minus mastered categories.
-  // --------------------------------------
+  // ----------------------------
+  // In-game: Determine available categories for active player.
+  // For Player 1: available = (player1Strengths ∪ aiWeaknesses) minus mastered.
+  // For AI: available = (aiStrengths ∪ player1Weaknesses) minus mastered.
+  // ----------------------------
   let availableCategories = [];
   if (gameState === "playing") {
     if (activePlayer === "Player 1") {
@@ -178,85 +147,84 @@ function App() {
         cat => !masteredCategories["AI Player"].includes(cat)
       );
     }
-    // Fallback if empty.
-    if (availableCategories.length === 0) {
-      availableCategories = allCategories;
-      console.log("Fallback: using all categories");
-    }
     console.log("Available categories for", activePlayer, ":", availableCategories);
   }
 
-  // --------------------------------------
-  // getQuestion: Returns a random question from the active player's current topic at the given degree.
-  // --------------------------------------
+  // ----------------------------
+  // getQuestion: Return a random question from currentTopic for a given degree.
+  // ----------------------------
   const getQuestion = (deg) => {
-    if (!currentTopicActive) return null;
-    const qs = currentTopicActive.degrees?.[deg];
-    console.log(`For topic "${currentTopicActive.topic}" (active for ${activePlayer}), degree ${deg}:`, qs);
+    if (!currentTopic) return null;
+    const qs = currentTopic.degrees?.[deg];
+    console.log(`For topic "${currentTopic.topic}", degree ${deg}:`, qs);
     return qs && qs.length > 0 ? qs[Math.floor(Math.random() * qs.length)] : null;
   };
 
-  // --------------------------------------
-  // useEffect: When currentTopicActive or degree changes, fetch a new question (100ms delay).
-  // --------------------------------------
-  useEffect(() => {
-    if (gameState === "playing" && selectedCategory && currentTopicActive && degree) {
-      const timer = setTimeout(() => {
-        const q = getQuestion(degree);
-        if (q) {
-          setCurrentQuestionActive(q);
-          console.log("Fetched question for", activePlayer, "Degree", degree, ":", q);
-        } else {
-          setFeedback(`No questions for "${currentTopicActive.topic}" at Degree ${degree}. Turn passes.`);
-          clearTurnState();
-          setTurn(prev => prev + 1);
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [currentTopicActive, degree, selectedCategory, gameState, activePlayer]);
-
-  // --------------------------------------
-  // handleSelectCategory: When a category is selected, clear previous state and choose a new random topic for the active player.
-  // --------------------------------------
+  // ----------------------------
+  // handleSelectCategory: When a category is chosen, clear previous state and pick a random topic.
+  // ----------------------------
   const handleSelectCategory = (cat) => {
-    console.log("handleSelectCategory called for", activePlayer, "with:", cat);
-    clearTurnState();
+    console.log("handleSelectCategory called with:", cat);
+    clearTurnState(); // Clear previous topic.
     setSelectedCategory(cat);
     setDegree(1);
     const topics = questions[cat];
     if (!topics || topics.length === 0) {
-      setFeedback(`No topics for ${cat}. Please select another category.`);
+      setFeedback(`No topics available for ${cat}. Please select a different category.`);
       return;
     }
     const validTopics = topics.filter(topic => topic.degrees && topic.degrees[1] && topic.degrees[1].length > 0);
     if (validTopics.length === 0) {
-      setFeedback(`No valid Degree 1 questions for ${cat}. Please select another category.`);
+      setFeedback(`No valid Degree 1 questions for ${cat}. Please select a different category.`);
       return;
     }
     const chosenTopic = validTopics[Math.floor(Math.random() * validTopics.length)];
     const q = chosenTopic.degrees[1][Math.floor(Math.random() * chosenTopic.degrees[1].length)];
-    setCurrentTopicActive(chosenTopic);
-    setCurrentQuestionActive(q);
+    setCurrentTopic(chosenTopic);
+    setCurrentQuestion(q);
     setFeedback('');
     setAnswer('');
-    console.log(activePlayer, "selected category:", cat, "and got topic:", chosenTopic.topic, "with question:", q);
+    console.log("Selected category:", cat, "Chosen topic:", chosenTopic.topic, "Question:", q);
   };
 
-  // --------------------------------------
-  // handleSubmitAnswer: Process answer submission for the active player.
-  // --------------------------------------
+  // ----------------------------
+  // useEffect: When currentTopic or degree changes, fetch a new question (with 100ms delay).
+  // ----------------------------
+  useEffect(() => {
+    if (gameState === "playing" && selectedCategory && currentTopic && degree) {
+      const timer = setTimeout(() => {
+        const q = getQuestion(degree);
+        if (q) {
+          setCurrentQuestion(q);
+          console.log(`Fetched new question for degree ${degree}:`, q);
+        } else {
+          console.error(`No question for topic "${currentTopic.topic}" at degree ${degree}`);
+          setFeedback(`No questions available for "${currentTopic.topic}" at Degree ${degree}. Turn passes.`);
+          clearTurnState();
+          setTurn(turn + 1);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [currentTopic, degree, selectedCategory, gameState, turn]);
+
+  // ----------------------------
+  // handleSubmitAnswer: Process answer submission.
+  // ----------------------------
   const handleSubmitAnswer = (providedAnswer) => {
     const userAnswer = providedAnswer !== undefined ? providedAnswer : answer;
     let isCorrect = false;
     if (activePlayer === "Player 1") {
-      if (currentQuestionP1) {
-        if (currentQuestionP1.type === "fill") {
-          isCorrect = isAnswerAcceptable(userAnswer, Array.isArray(currentQuestionP1.answer) ? currentQuestionP1.answer[0] : currentQuestionP1.answer);
+      if (currentQuestion) {
+        if (currentQuestion.type === "fill") {
+          isCorrect = isAnswerAcceptable(
+            userAnswer,
+            Array.isArray(currentQuestion.answer) ? currentQuestion.answer[0] : currentQuestion.answer
+          );
         } else {
-          isCorrect = Array.isArray(currentQuestionP1.answer)
-            ? currentQuestionP1.answer.some(a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase())
-            : userAnswer.trim().toLowerCase() === currentQuestionP1.answer.trim().toLowerCase();
+          isCorrect = Array.isArray(currentQuestion.answer)
+            ? currentQuestion.answer.some(a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase())
+            : userAnswer.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase();
         }
       }
     } else {
@@ -264,41 +232,41 @@ function App() {
     }
     
     if (isCorrect) {
-      console.log(activePlayer, "answered correctly.");
+      console.log(`${activePlayer} answered correctly!`);
       let basePoints = degree * 10;
-      if (activePlayer === "Player 1" && currentQuestionP1 && currentQuestionP1.type === "fill") basePoints *= 2;
-      if (activePlayer === "AI Player" && currentQuestionAI && currentQuestionAI.type === "fill") basePoints *= 2;
+      if (currentQuestion.type === "fill") basePoints *= 2;
       const bonus = activePlayer === "Player 1"
         ? (player1Weaknesses.includes(selectedCategory) ? 10 : 0)
         : (aiWeaknesses.includes(selectedCategory) ? 10 : 0);
       const totalPoints = basePoints + bonus;
       setScore(prev => ({ ...prev, [activePlayer]: prev[activePlayer] + totalPoints }));
-      console.log(activePlayer, "earns", totalPoints, "points.");
+      console.log(`Correct: ${activePlayer} earns ${totalPoints} points (base ${basePoints} + bonus ${bonus}).`);
       if (degree < 3) {
-        setDegree(prev => prev + 1);
+        setDegree(degree + 1);
       } else {
-        setFeedback(`${activePlayer} has mastered ${selectedCategory} for topic "${currentTopicActive.topic}"!`);
+        console.log(`${activePlayer} has mastered ${selectedCategory} for topic "${currentTopic.topic}"!`);
+        setFeedback(`${activePlayer} has mastered ${selectedCategory} for topic "${currentTopic.topic}"!`);
         setMasteredCategories(prev => ({
           ...prev,
           [activePlayer]: [...prev[activePlayer], selectedCategory]
         }));
         clearTurnState();
-        setTurn(prev => prev + 1);
-        if (activePlayer === "AI Player") setRound(prev => prev + 1);
+        setTurn(turn + 1);
+        if (activePlayer === "AI Player") setRound(round + 1);
       }
     } else {
+      console.log(`${activePlayer} answered incorrectly.`);
       setFeedback(`${activePlayer} answered incorrectly. Turn passes.`);
-      console.log(activePlayer, "answered incorrectly.");
       clearTurnState();
-      setTurn(prev => prev + 1);
-      if (activePlayer === "AI Player") setRound(prev => prev + 1);
+      setTurn(turn + 1);
+      if (activePlayer === "AI Player") setRound(round + 1);
     }
     setAnswer('');
   };
 
-  // --------------------------------------
+  // ----------------------------
   // Game Over: End game after 5 rounds or if Player 1 masters all available categories.
-  // --------------------------------------
+  // ----------------------------
   if (gameState === "playing") {
     const totalCats = [...player1Strengths, ...aiWeaknesses].length;
     if (round > 5 || masteredCategories["Player 1"].length === totalCats) {
@@ -315,9 +283,9 @@ function App() {
     }
   }
 
-  // --------------------------------------
+  // ----------------------------
   // Render Gameplay Interface.
-  // --------------------------------------
+  // ----------------------------
   return (
     <div style={{ textAlign: 'center', padding: '20px', fontFamily: 'Arial' }}>
       <h1>3 Degrees Game</h1>
@@ -328,7 +296,7 @@ function App() {
             <>
               <h3>Select a Category to Play:</h3>
               {availableCategories.map(cat => (
-                <button key={cat} onClick={() => handleSelectCategory(cat)}>
+                <button key={cat} onClick={() => { console.log("handleSelectCategory called for:", cat); handleSelectCategory(cat); }}>
                   {cat}
                 </button>
               ))}
@@ -338,7 +306,7 @@ function App() {
             <>
               <h3>AI is selecting a category...</h3>
               {availableCategories.length > 0 ? (
-                <button onClick={() => handleSelectCategory(availableCategories[0])}>
+                <button onClick={() => { console.log("AI selects category:", availableCategories[0]); handleSelectCategory(availableCategories[0]); }}>
                   AI selects {availableCategories[0]}
                 </button>
               ) : (
@@ -346,17 +314,17 @@ function App() {
               )}
             </>
           )}
-          {selectedCategory && currentQuestionActive && (
+          {selectedCategory && currentQuestion && (
             <>
               <h3>
-                Category: {selectedCategory} - Topic: {currentTopicActive.topic} - Degree {degree}
+                Category: {selectedCategory} - Topic: {currentTopic.topic} - Degree {degree}
               </h3>
-              <p>{currentQuestionActive.question}</p>
+              <p>{currentQuestion.question}</p>
               {activePlayer === "Player 1" ? (
-                currentQuestionActive.type === "mc" ? (
+                currentQuestion.type === "mc" ? (
                   <>
-                    {currentQuestionActive.choices.map((choice, index) => (
-                      <button key={index} onClick={() => handleSubmitAnswer(choice)}>
+                    {currentQuestion.choices.map((choice, index) => (
+                      <button key={index} onClick={() => { console.log("MC choice selected:", choice); handleSubmitAnswer(choice); }}>
                         {choice}
                       </button>
                     ))}
